@@ -1,0 +1,64 @@
+version: '3.8'
+
+volumes:
+  ollama:
+  rag_data:
+
+networks:
+  ragnet:
+    driver: bridge
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ragcore-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - ragnet
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  ragcore:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ragcore-api
+    restart: unless-stopped
+    ports:
+      - "29000:29000"
+    volumes:
+      - rag_data:/app/rag_data
+    environment:
+      - RAGCORE_LLM_MODEL=frob/qwen3.5-instruct:9b
+      - RAGCORE_LLM_BASE_URL=http://ollama:11434
+      - RAGCORE_EMBEDDING_MODEL=nomic-embed-text:latest
+      - RAGCORE_EMBEDDING_BASE_URL=http://ollama:11434
+      - RAGCORE_DATA_DIR=/app/rag_data
+      - RAGCORE_SERVER_HOST=0.0.0.0
+      - RAGCORE_SERVER_PORT=29000
+      - RAGCORE_SERVER_WORKERS=1
+      - RAGCORE_LOG_LEVEL=INFO
+      - RAGCORE_LOG_FORMAT=json
+      - RAGCORE_CORS_ALLOW_ORIGINS=["*"]
+      - RAGCORE_RATE_LIMIT_ENABLED=true
+      - RAGCORE_RATE_LIMIT_DEFAULT=100/minute
+      - RAGCORE_RATE_LIMIT_QUERY=20/minute
+      - RAGCORE_RATE_LIMIT_INGEST=10/minute
+    networks:
+      - ragnet
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:29000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

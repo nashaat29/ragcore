@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGCore — Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.4/purify.min.js"></script>
+</head>
+<body>
+  <nav class="topnav">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v6l4 2"/>
+      </svg>
+      RAGCore
+    </div>
+    <div class="nav-links">
+      <a href="/" class="active">Dashboard</a>
+      <a href="/monitoring">Monitoring</a>
+      <a href="/docs">API Docs</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="grid grid-4 mb-4" id="statsRow">
+      <div class="stat-card">
+        <div class="stat-value" id="statChunks">0</div>
+        <div class="stat-label">Total Chunks</div>
+        <div class="stat-sub" id="statChunksSub">in active index</div>
+        <div class="stat-sparkline"><div class="fill" id="sparkChunks" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statIndexes">0</div>
+        <div class="stat-label">Saved Indexes</div>
+        <div class="stat-sub">persisted on disk</div>
+        <div class="stat-sparkline"><div class="fill" id="sparkIndexes" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statQueries">0</div>
+        <div class="stat-label">Queries</div>
+        <div class="stat-sub" id="statQueriesSub">since server start</div>
+        <div class="stat-sparkline"><div class="fill" id="sparkQueries" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statCache">0%</div>
+        <div class="stat-label">Cache Hit Rate</div>
+        <div class="stat-sub" id="statCacheSub">semantic cache</div>
+        <div class="stat-sparkline"><div class="fill" id="sparkCache" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2 chat-layout">
+      <div class="flex flex-col gap-4">
+        <!-- Ingest -->
+        <div class="card">
+          <div class="card-header">
+            <h3>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Ingest Documents
+            </h3>
+            <span class="tag tag-green" id="ingestStatus" style="font-size:10px;">Ready</span>
+          </div>
+          <div class="card-body">
+            <div class="tabs">
+              <button class="tab active" data-tab="tabText">Text</button>
+              <button class="tab" data-tab="tabFile">File</button>
+              <button class="tab" data-tab="tabDir">Directory</button>
+            </div>
+
+            <div class="tab-content active" id="tabText">
+              <div class="form-group">
+                <textarea id="ingestText" placeholder="Paste your document text here..." style="min-height:80px;"></textarea>
+              </div>
+              <div class="form-group">
+                <input type="text" id="ingestTextMeta" placeholder='{"source": "manual"}' style="font-size:12px;">
+              </div>
+              <button class="btn btn-primary btn-block btn-sm" onclick="ingestText()">Ingest Text</button>
+            </div>
+
+            <div class="tab-content" id="tabFile">
+              <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Upload a file</div>
+              </div>
+              <input type="file" id="fileInput" class="hidden" onchange="ingestFile(this)">
+              <div id="fileInfo" class="hidden mt-4"></div>
+            </div>
+
+            <div class="tab-content" id="tabDir">
+              <div class="form-group">
+                <input type="text" id="ingestDir" placeholder="/path/to/documents" style="font-size:13px;">
+              </div>
+              <div class="form-group">
+                <label class="flex items-center gap-2" style="font-size:13px;font-weight:500;">
+                  <input type="checkbox" id="ingestRecursive" checked>
+                  <span>Recursive</span>
+                </label>
+              </div>
+              <button class="btn btn-primary btn-block btn-sm" onclick="ingestDirectory()">Ingest Directory</button>
+            </div>
+
+            <div id="ingestResult" class="mt-4 hidden"></div>
+          </div>
+        </div>
+
+        <!-- Index Management -->
+        <div class="card">
+          <div class="card-header">
+            <h3>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Index Management
+            </h3>
+            <span class="tag tag-blue" id="activeIndex" style="font-size:10px;">default</span>
+          </div>
+          <div class="card-body">
+            <div class="flex gap-2 mb-4">
+              <input type="text" id="indexName" placeholder="Index name" class="flex" style="flex:1;padding:7px 10px;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:13px;">
+              <button class="btn btn-primary btn-sm" onclick="saveIndex()" style="padding:7px 14px;">Save</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadIndex()" style="padding:7px 14px;">Load</button>
+            </div>
+            <div class="table-wrap" style="border:1px solid var(--gray-200);border-radius:var(--radius);">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:30%;">Name</th>
+                    <th style="width:20%;">Vectors</th>
+                    <th style="width:20%;">Size</th>
+                    <th style="width:30%;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="indexList">
+                  <tr><td colspan="4" style="text-align:center;color:var(--gray-400);padding:20px;">No saved indexes yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="card chat-card">
+        <div class="card-header">
+          <h3>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Ask RAGCore
+            <span class="tag tag-gray" id="queryModel" style="font-size:10px;font-weight:400;margin-left:4px;"></span>
+          </h3>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-secondary btn-sm" onclick="clearChat()" title="Clear conversation" style="padding:4px 8px;font-size:11px;">Clear</button>
+            <span class="tag tag-gray" id="queryStrategy" style="font-size:10px;">simple</span>
+            <select id="strategySelect" onchange="changeStrategy(this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;background:white;">
+              <option value="simple">Simple</option>
+              <option value="mmr">MMR</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="ensemble">Ensemble</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-empty" id="chatEmpty">
+            <div class="chat-empty-icon">💬</div>
+            <div class="chat-empty-text">Ask a question to get started</div>
+            <div class="chat-empty-hint">Type your question below and press Enter</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <div class="chat-input-row">
+            <input type="number" id="queryK" value="4" min="1" max="50" class="chat-k-input" title="Top-K chunks">
+            <textarea id="queryInput" placeholder="Ask a question..." rows="1" autocomplete="off"></textarea>
+            <button class="btn btn-primary btn-send" onclick="runQuery()" id="queryBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

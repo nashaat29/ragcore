@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGCore — Monitoring</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="topnav">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v6l4 2"/>
+      </svg>
+      RAGCore
+    </div>
+    <div class="nav-links">
+      <a href="/">Dashboard</a>
+      <a href="/monitoring" class="active">Monitoring</a>
+      <a href="/docs">API Docs</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div class="header-row">
+        <div>
+          <h1>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2" style="vertical-align:middle;">
+              <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+            </svg>
+            Monitoring
+          </h1>
+          <p>Real-time metrics, logs, and system information</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="refreshMetrics()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-4 mb-4" id="quickStats">
+      <div class="stat-card">
+        <div class="stat-value" id="monUptime">-</div>
+        <div class="stat-label">Uptime</div>
+        <div class="stat-sparkline"><div class="fill" style="width:100%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="monVersion">-</div>
+        <div class="stat-label">Version</div>
+        <div class="stat-sparkline"><div class="fill" style="width:100%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="monStatus"><span class="status-dot green"></span>Healthy</div>
+        <div class="stat-label">API Status</div>
+        <div class="stat-sparkline"><div class="fill" style="width:100%;background:var(--success)"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="monStrategy">-</div>
+        <div class="stat-label">Active Strategy</div>
+        <div class="stat-sparkline"><div class="fill" style="width:100%"></div></div>
+      </div>
+    </div>
+
+    <!-- Counter Tiles -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Counters
+        </h3>
+      </div>
+      <div class="card-body">
+        <div class="data-grid grid-6" id="countersGrid">
+          <div class="metric-card">
+            <div class="metric-label">Total Queries</div>
+            <div class="metric-value" id="cntQueries">0</div>
+            <div class="metric-sparkline"><div class="fill fill-blue" id="sparkQueries" style="width:0%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Ingestions</div>
+            <div class="metric-value" id="cntIngestion">0</div>
+            <div class="metric-sparkline"><div class="fill fill-green" id="sparkIngestion" style="width:0%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Cache Hits</div>
+            <div class="metric-value" id="cntCacheHits">0</div>
+            <div class="metric-sparkline"><div class="fill fill-green" id="sparkHits" style="width:0%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Cache Misses</div>
+            <div class="metric-value" id="cntCacheMisses">0</div>
+            <div class="metric-sparkline"><div class="fill fill-yellow" id="sparkMisses" style="width:0%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Errors</div>
+            <div class="metric-value" id="cntErrors">0</div>
+            <div class="metric-sparkline"><div class="fill fill-red" id="sparkErrors" style="width:0%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Cache Hit Rate</div>
+            <div class="metric-value" id="cntHitRate">0%</div>
+            <div class="metric-sparkline"><div class="fill" id="sparkHitRate" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Latency + Pipeline/Logs -->
+    <div class="grid grid-2 mb-4" style="flex:1;">
+      <!-- Latency -->
+      <div class="card">
+        <div class="card-header">
+          <h3>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Query Latency
+          </h3>
+        </div>
+        <div class="card-body">
+          <div class="monitor-row grid grid-2" id="latencyGrid">
+            <div class="metric-card">
+              <div class="metric-dot" id="dotAvg"></div>
+              <div class="metric-label">Average</div>
+              <div class="metric-value" id="latAvg" style="font-size:18px;">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-dot" id="dotP50"></div>
+              <div class="metric-label">P50 (Median)</div>
+              <div class="metric-value" id="latP50" style="font-size:18px;">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-dot" id="dotP95"></div>
+              <div class="metric-label">P95</div>
+              <div class="metric-value" id="latP95" style="font-size:18px;">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-dot" id="dotP99"></div>
+              <div class="metric-label">P99</div>
+              <div class="metric-value" id="latP99" style="font-size:18px;">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-dot" id="dotMin"></div>
+              <div class="metric-label">Min</div>
+              <div class="metric-value" id="latMin" style="font-size:18px;">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-dot" id="dotMax"></div>
+              <div class="metric-label">Max</div>
+              <div class="metric-value" id="latMax" style="font-size:18px;">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pipeline + Logs Column -->
+      <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Pipeline Stats -->
+        <div class="card">
+          <div class="card-header">
+            <h3>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Pipeline Stats
+            </h3>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table>
+                <tbody id="pipelineTable">
+                  <tr><td style="width:140px;font-weight:600;color:var(--gray-500);font-size:12px;text-transform:uppercase;letter-spacing:0.3px;">Vector Count</td><td id="plVectorCount" class="val-mono">-</td></tr>
+                  <tr><td style="font-weight:600;color:var(--gray-500);font-size:12px;text-transform:uppercase;letter-spacing:0.3px;">Active Index</td><td id="plActiveIndex" class="val-mono">-</td></tr>
+                  <tr><td style="font-weight:600;color:var(--gray-500);font-size:12px;text-transform:uppercase;letter-spacing:0.3px;">Strategy</td><td id="plStrategy" class="val-mono">-</td></tr>
+                  <tr><td style="font-weight:600;color:var(--gray-500);font-size:12px;text-transform:uppercase;letter-spacing:0.3px;">Indexes</td><td id="plIndexes" style="font-size:12px;">-</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <details class="config-details">
+              <summary>⚙️ Current Configuration</summary>
+              <div class="config-inner">
+                <table>
+                  <tbody id="configTable">
+                    <tr><td>Loading...</td><td></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card">
+          <div class="card-header">
+            <h3>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red-600)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Live Logs
+            </h3>
+            <div class="flex gap-2">
+              <button class="btn btn-secondary btn-sm" onclick="toggleLogStream()" id="logToggleBtn">
+                <span class="status-dot green" id="logStatusDot"></span>
+                <span id="logToggleText">Pause</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchLogs()">Refresh</button>
+            </div>
+          </div>
+          <div class="card-body" style="overflow:hidden;padding:0;">
+            <div class="log-viewer" id="logViewer" style="height:340px;resize:vertical;">
+              <div class="log-line" style="color:var(--gray-600);">Waiting for logs...</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/monitoring.js"></script>
+</body>
+</html>

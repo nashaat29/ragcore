@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+ENV/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+docs/
+REFERENCE.md
+*.md
+
+# Local data
+rag_data/
+*.faiss
+*.db
+*.sqlite
+*.sqlite3
+
+# Config (user provides their own)
+.env
+
+# Temp files
+*.log
+*.tmp
+*.bak
+.cache/
+
+# Build artifacts
+*.whl
+*.tar.gz
