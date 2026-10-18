@@ -7,7 +7,7 @@ from typing import Any
 
 from ragcore.cache.semantic_cache import SemanticCache
 from ragcore.core.config import settings
-from ragcore.core.exceptions import PipelineError
+from ragcore.core.exceptions import GuardrailViolationError, PipelineError
 from ragcore.core.logger import generate_correlation_id, get_logger
 from ragcore.embeddings.provider import EmbeddingProvider
 from ragcore.ingestion.chunker import SemanticChunker
@@ -20,6 +20,7 @@ from ragcore.retrieval.ensemble import EnsembleRetriever
 from ragcore.retrieval.hybrid import HybridRetriever
 from ragcore.retrieval.mmr import MMRRetriever
 from ragcore.retrieval.simple import SimpleRetriever
+from ragcore.safety import GuardrailResult, SafetyGuard
 from ragcore.vectorstore.faiss_store import FAISSVectorStore
 from ragcore.vectorstore.index_manager import IndexManager
 
@@ -52,6 +53,7 @@ class RAGPipeline:
         self._chunker = SemanticChunker(embedding_provider=self._embedding_provider)
         self._cache = SemanticCache() if settings.cache_enabled else None
         self._retriever: BaseRetriever | None = None
+        self._safety = SafetyGuard(self.config)
 
         self._load_active_index()
 
@@ -85,6 +87,76 @@ class RAGPipeline:
     def set_retrieval_strategy(self, strategy: str) -> None:
         self._retriever = self._build_retriever(strategy)
         logger.info(f"Retrieval strategy set to '{strategy}'")
+
+    # --- Guardrail helpers ---
+
+    @staticmethod
+    def _new_guard_state() -> dict[str, Any]:
+        return {"checks": [], "dropped_chunks": 0, "action": "pass"}
+
+    @staticmethod
+    def _apply_guard(state: dict[str, Any], res: GuardrailResult) -> None:
+        state["checks"].extend(c.to_dict() for c in res.checks)
+        state["dropped_chunks"] += res.dropped_chunks
+        if res.triggered and state["action"] == "pass":
+            state["action"] = res.action
+
+    @staticmethod
+    def _blocked_guard_info(e: GuardrailViolationError) -> dict[str, Any]:
+        return {
+            "triggered": True,
+            "action": "block",
+            "checks": e.checks,
+            "dropped_chunks": 0,
+        }
+
+    def _guard_info(self, state: dict[str, Any]) -> dict[str, Any] | None:
+        if not self._safety.enabled:
+            return None
+        return {
+            "triggered": state["action"] != "pass",
+            "action": state["action"],
+            "checks": state["checks"],
+            "dropped_chunks": state["dropped_chunks"],
+        }
+
+    def _guard_input(
+        self,
+        question: str,
+        chat_history: list[dict[str, str]] | None,
+        state: dict[str, Any],
+    ) -> None:
+        if not self._safety.enabled:
+            return
+        self._apply_guard(state, self._safety.check_input(question))
+        for m in (chat_history or [])[-6:]:
+            content = str(m.get("content", "") or "")
+            if content:
+                self._apply_guard(state, self._safety.check_input(content))
+
+    def _guard_retrieval(
+        self, retrieved: list[dict[str, Any]], state: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        if not self._safety.enabled or not retrieved:
+            return retrieved
+        kept_texts, res = self._safety.check_retrieval([r.get("text", "") for r in retrieved])
+        self._apply_guard(state, res)
+        if res.dropped_chunks == 0:
+            return retrieved
+        kept_set = set(kept_texts)
+        return [r for r in retrieved if r.get("text", "") in kept_set]
+
+    def _guard_output(
+        self,
+        question: str,
+        answer: str,
+        retrieved: list[dict[str, Any]],
+        state: dict[str, Any],
+    ) -> None:
+        if not self._safety.enabled:
+            return
+        evidence = [r.get("text", "") for r in retrieved]
+        self._apply_guard(state, self._safety.check_output(answer, question, evidence))
 
     def ingest_text(self, text: str, metadata: dict[str, Any] | None = None) -> list[str]:
         generate_correlation_id()
@@ -152,6 +224,9 @@ class RAGPipeline:
         generate_correlation_id()
         start = time.time()
         k = k or settings.retrieval_top_k
+        guard_state = self._new_guard_state()
+
+        self._guard_input(question, chat_history, guard_state)
 
         if use_cache and self._cache:
             cached = self._cache.get(question)
@@ -162,6 +237,7 @@ class RAGPipeline:
                 logger.info(f"Cache hit for query (elapsed={elapsed:.3f}s)")
                 cached["cached"] = True
                 cached["elapsed"] = elapsed
+                cached["guardrail"] = self._guard_info(guard_state)
                 return cached
 
         metrics.increment("cache_misses")
@@ -174,6 +250,8 @@ class RAGPipeline:
                 except Exception as e:
                     metrics.increment("errors_total")
                     raise PipelineError(f"Retrieval failed: {e}") from e
+
+            retrieved = self._guard_retrieval(retrieved, guard_state)
 
             if not retrieved:
                 answer = "I couldn't find any relevant information to answer this question."
@@ -188,6 +266,8 @@ class RAGPipeline:
                         answer = self._chain.generate(question, context, chat_history)
                     except Exception as e:
                         raise PipelineError(f"Generation failed: {e}") from e
+
+                self._guard_output(question, answer, retrieved, guard_state)
 
                 sources = [
                     {
@@ -207,6 +287,7 @@ class RAGPipeline:
             "total_chunks": len(retrieved),
             "elapsed": time.time() - start,
             "cached": False,
+            "guardrail": self._guard_info(guard_state),
         }
 
         if use_cache and self._cache and retrieved:
@@ -234,6 +315,22 @@ class RAGPipeline:
 
         k = k or settings.retrieval_top_k
         start = time.time()
+        guard_state = self._new_guard_state()
+
+        try:
+            await asyncio.to_thread(self._guard_input, question, chat_history, guard_state)
+        except GuardrailViolationError as e:
+            self._last_stream_result = {
+                "answer": "",
+                "sources": [],
+                "total_chunks": 0,
+                "elapsed": time.time() - start,
+                "retrieval_strategy": self.retriever.name,
+                "cached": False,
+                "blocked": True,
+                "guardrail": self._blocked_guard_info(e),
+            }
+            return
 
         if use_cache and self._cache:
             cached = self._cache.get(question)
@@ -244,6 +341,7 @@ class RAGPipeline:
                 logger.info(f"Cache hit for stream query (elapsed={elapsed:.3f}s)")
                 cached["cached"] = True
                 cached["elapsed"] = elapsed
+                cached["guardrail"] = self._guard_info(guard_state)
                 self._last_stream_result = cached
                 answer = cached.get("answer", "")
                 for char in answer:
@@ -256,6 +354,7 @@ class RAGPipeline:
         metrics.increment("queries_total")
 
         retrieved = await asyncio.to_thread(self.retriever.retrieve, question, k)
+        retrieved = await asyncio.to_thread(self._guard_retrieval, retrieved, guard_state)
 
         if not retrieved:
             answer = "I couldn't find any relevant information to answer this question."
@@ -266,6 +365,7 @@ class RAGPipeline:
                 "elapsed": time.time() - start,
                 "retrieval_strategy": self.retriever.name,
                 "cached": False,
+                "guardrail": self._guard_info(guard_state),
             }
             yield answer
             metrics.record_timing("query_latency", time.time() - start)
@@ -281,6 +381,23 @@ class RAGPipeline:
             tokens.append(chunk)
             yield chunk
 
+        answer = "".join(tokens)
+
+        try:
+            await asyncio.to_thread(self._guard_output, question, answer, retrieved, guard_state)
+        except GuardrailViolationError as e:
+            self._last_stream_result = {
+                "answer": answer,
+                "sources": [],
+                "total_chunks": len(retrieved),
+                "elapsed": time.time() - start,
+                "retrieval_strategy": self.retriever.name,
+                "cached": False,
+                "blocked": True,
+                "guardrail": self._blocked_guard_info(e),
+            }
+            return
+
         sources = [
             {
                 "text": r.get("text", "")[:200],
@@ -291,12 +408,13 @@ class RAGPipeline:
         ]
 
         result = {
-            "answer": "".join(tokens),
+            "answer": answer,
             "sources": sources,
             "total_chunks": len(retrieved),
             "elapsed": time.time() - start,
             "retrieval_strategy": self.retriever.name,
             "cached": False,
+            "guardrail": self._guard_info(guard_state),
         }
 
         self._last_stream_result = result
@@ -308,8 +426,11 @@ class RAGPipeline:
 
     def retrieve_only(self, question: str, k: int | None = None) -> dict[str, Any]:
         k = k or settings.retrieval_top_k
+        guard_state = self._new_guard_state()
+        self._guard_input(question, None, guard_state)
         with Timer(metrics, "retrieval_latency"):
             retrieved = self.retriever.retrieve(question, k=k)
+        retrieved = self._guard_retrieval(retrieved, guard_state)
         return {
             "results": [
                 {
@@ -321,6 +442,7 @@ class RAGPipeline:
             ],
             "total": len(retrieved),
             "retrieval_strategy": self.retriever.name,
+            "guardrail": self._guard_info(guard_state),
         }
 
     def save_index(self, name: str | None = None) -> None:
