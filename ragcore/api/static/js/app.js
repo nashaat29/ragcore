@@ -512,6 +512,11 @@ async function runQuery() {
             const stEl = document.getElementById('streamingText');
             if (stEl) stEl.textContent = answer;
             scrollToBottom();
+          } else if (data.event === 'blocked') {
+            const sEl = document.getElementById('streamingMsg');
+            if (sEl) sEl.remove();
+            addMessage('assistant', '**Blocked by safety guardrails.** This request was stopped before an answer was produced.');
+            showToast('error', 'Blocked by safety guardrails');
           } else if (data.event === 'done') {
             const result = data.result || {};
 

@@ -47,6 +47,7 @@ async def query(request: Request, req: QueryRequest):
         total_chunks=result.get("total_chunks", 0),
         elapsed=result.get("elapsed", 0.0),
         cached=result.get("cached", False),
+        guardrail=result.get("guardrail"),
     )
 
 
@@ -70,7 +71,10 @@ async def query_stream(request: Request, req: StreamQueryRequest):
         async for token in stream:
             yield f"data: {json.dumps({'token': token}, default=str)}\n\n"
         result = getattr(pipeline, '_last_stream_result', None) or {}
-        yield f"data: {json.dumps({'event': 'done', 'result': result}, default=str)}\n\n"
+        if result.get("blocked"):
+            yield f"data: {json.dumps({'event': 'blocked', 'result': result}, default=str)}\n\n"
+        else:
+            yield f"data: {json.dumps({'event': 'done', 'result': result}, default=str)}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 

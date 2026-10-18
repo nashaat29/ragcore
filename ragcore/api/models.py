@@ -68,6 +68,19 @@ class SourceInfo(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class GuardrailCheckInfo(BaseModel):
+    stage: str = ""
+    rail: str = ""
+    status: str = ""
+
+
+class GuardrailInfo(BaseModel):
+    triggered: bool = False
+    action: str = "pass"  # pass | flag | block
+    checks: list[GuardrailCheckInfo] = Field(default_factory=list)
+    dropped_chunks: int = 0
+
+
 class QueryResponse(BaseModel):
     answer: str = ""
     sources: list[SourceInfo] = Field(default_factory=list)
@@ -77,6 +90,7 @@ class QueryResponse(BaseModel):
     total_chunks: int = 0
     elapsed: float = 0.0
     cached: bool = False
+    guardrail: GuardrailInfo | None = None
 
 
 class StreamQueryRequest(BaseQueryModel):
@@ -93,6 +107,7 @@ class RetrieveOnlyResponse(BaseModel):
     results: list[dict[str, Any]] = Field(default_factory=list)
     total: int = 0
     retrieval_strategy: str = ""
+    guardrail: GuardrailInfo | None = None
 
 
 # --- Management ---

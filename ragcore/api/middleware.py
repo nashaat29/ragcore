@@ -48,6 +48,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
             status_mapping: dict[type[RAGCoreError], int] = {}
             from ragcore.core.exceptions import (
                 ConfigurationError,
+                GuardrailViolationError,
                 IndexNotFoundError,
                 UnsupportedFileTypeError,
             )
@@ -55,6 +56,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 IndexNotFoundError: status.HTTP_404_NOT_FOUND,
                 UnsupportedFileTypeError: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 ConfigurationError: status.HTTP_500_INTERNAL_SERVER_ERROR,
+                GuardrailViolationError: status.HTTP_422_UNPROCESSABLE_ENTITY,
             }
             status_code = status_mapping.get(type(e), status.HTTP_400_BAD_REQUEST)
             logger.error(f"RAGCore error: {e.message}", details=e.details)
