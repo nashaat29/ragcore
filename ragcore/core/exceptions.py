@@ -58,5 +58,23 @@ class PipelineError(RAGCoreError):
     """Raised when the RAG pipeline fails."""
 
 
+class GuardrailViolationError(RAGCoreError):
+    """Raised when a safety guardrail blocks a request or a response."""
+
+    def __init__(
+        self,
+        message: str = "Blocked by safety guardrail",
+        *,
+        stage: str = "",
+        rail: str = "",
+        checks: list[dict[str, str]] | None = None,
+    ):
+        details = {"stage": stage, "rail": rail, "action": "block"}
+        super().__init__(message, details)
+        self.stage = stage
+        self.rail = rail
+        self.checks = checks or []
+
+
 class ServerError(RAGCoreError):
     """Raised on server-level errors."""

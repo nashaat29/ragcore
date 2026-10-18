@@ -79,6 +79,17 @@ class Settings(BaseSettings):
     max_query_length: int = Field(default=4000, ge=1)
     max_k: int = Field(default=50, ge=1)
 
+    # --- Guardrails (NeMo Guardrails, Balanced) ---
+    guardrails_enabled: bool = Field(default=True)
+    # block: raise GuardrailViolationError; flag: annotate result and continue
+    guardrails_fail_mode: Literal["block", "flag"] = Field(default="block")
+    guardrails_input_scan: bool = Field(default=True)
+    guardrails_retrieval_scan: bool = Field(default=True)
+    # The two below invoke the LLM (2 calls per query); secrets scan is regex-only.
+    guardrails_output_moderation: bool = Field(default=True)
+    guardrails_output_secrets: bool = Field(default=True)
+    guardrails_grounding_check: bool = Field(default=True)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not self.log_file:
