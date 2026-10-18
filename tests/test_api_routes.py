@@ -110,6 +110,10 @@ def pipeline():
         embedding_provider=MockEmbeddingProvider(),
         llm_provider=MockLLMProvider(),
         vectorstore=MockVectorStore(),
+        config={
+            "guardrails_output_moderation": False,
+            "guardrails_grounding_check": False,
+        },
     )
 
 

@@ -90,7 +90,11 @@ class TestRAGPipeline:
             embedding_provider=MockEmbeddingProvider(),
             llm_provider=MockLLMProvider(),
             vectorstore=MockVectorStore(),
-            config={"retrieval_strategy": "simple"},
+            config={
+                "retrieval_strategy": "simple",
+                "guardrails_output_moderation": False,
+                "guardrails_grounding_check": False,
+            },
         )
 
     def test_ingest_text(self, pipeline):
