@@ -1,0 +1,46 @@
+Practical Python Tips
+
+List comprehensions provide a concise way to build lists. Instead of initializing an empty
+list and appending in a loop, you write an expression followed by a for clause inside
+square brackets: squares = [n * n for n in range(10)]. You can add conditions to filter:
+evens = [n for n in range(20) if n % 2 == 0]. Use them when the transformation is simple
+and readable; switch back to a plain loop when the logic has multiple branches or side
+effects, because forcing everything into one expression hurts clarity.
+
+Working with files is safest with the with statement, which guarantees the file is closed
+even if an exception occurs: with open("data.txt") as fh: content = fh.read(). Always
+specify the encoding explicitly, such as encoding="utf-8", to avoid platform-dependent
+behavior. For large files, iterate over the file object line by line instead of reading
+the whole file into memory.
+
+Dictionaries are the workhorse for lookups. The get method returns a default instead of
+raising KeyError: value = mapping.get(key, default). The collections module offers
+defaultdict and Counter for tallying. When you need stable ordering, remember that modern
+Python dicts preserve insertion order, which is often all the sorting you need for
+reporting.
+
+Virtual environments keep project dependencies isolated. Create one with python -m venv
+.venv, activate it, and install packages into it so global Python stays clean. Record
+dependencies in a requirements file or pyproject table so environments are reproducible.
+Tools like ruff combine linting and formatting in one fast binary and are a good default
+for new projects.
+
+Testing pays for itself quickly. The pytest discovery model finds test functions
+automatically; use fixtures for shared setup instead of helper modules with global state.
+Keep tests deterministic: fix random seeds, avoid real network calls, and prefer temp
+directories created by fixtures over writing into the source tree.
+
+Type hints improve refactoring safety even if you do not run a checker. Annotate function
+signatures first, then run mypy in strict mode on the codebase and fix findings
+incrementally. Dataclasses or pydantic models are preferable to raw dictionaries when a
+structure has a fixed shape, because validation and IDE completion come for free.
+
+Async code suits I/O-bound workloads. Async def defines a coroutine, await pauses it, and
+an event loop such as asyncio drives it. Do not mix blocking calls inside async functions;
+offload them with asyncio.to_thread or use an async-native client. FastAPI uses this model
+natively: define async def endpoints and await external services.
+
+Finally, small habits compound: use f-strings for formatting, prefer early returns over
+deep nesting, name constants in uppercase, and keep functions short enough to read on one
+screen. The standard library is larger than most people realize; check functools, itertools,
+pathlib, and dataclasses before reaching for a third-party package.

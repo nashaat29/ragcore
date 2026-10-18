@@ -1,0 +1,52 @@
+Acme Corporation Employee Handbook (Excerpt)
+
+Section 4: Working Location and Remote Work
+
+Acme operates a hybrid model. Employees assigned to an office are expected to be physically
+present in the office at least three days per week: Tuesday, Wednesday, and Thursday are
+core collaboration days. Monday and Friday are flexible and may be worked remotely from
+within the country of employment. Fully remote roles exist for positions marked
+"distributed" in the job catalog, and those employees may work from anywhere in their
+contracted country, but must be reachable during their agreed core hours of 10:00 to 16:00
+local time. Managers may approve additional remote days for short periods such as home
+repairs or family obligations without a formal request.
+
+Section 5: Paid Time Off
+
+Full-time employees accrue 1.5 days of paid time off per month of service, which totals
+18 days per year. Accrual begins on the first day of employment and vests monthly.
+Part-time employees accrue proportionally to their scheduled hours. Up to five unused days
+may be carried into the next calendar year; anything above five is forfeited unless a
+manager approves a written exception before December 15. PTO requests of three consecutive
+days or more require approval two weeks in advance. Sick leave is tracked separately at
+six days per year and does not require advance notice for the first two days.
+
+Section 6: Expense Reporting
+
+All business expenses must be submitted through the finance portal within 30 days of the
+purchase date. Receipts are mandatory for any single item over 25 dollars. Categories
+include travel, meals during travel, professional development, and approved software
+subscriptions. Meals without travel are reimbursable only for client-facing events and
+must list the attendees. Expenses submitted after 90 days are rejected by policy and
+cannot be appealed. Reimbursements are paid with the next regular payroll cycle after
+approval, typically within two weeks.
+
+Section 7: Security Training and Compliance
+
+All employees must complete quarterly security training assigned by the IT department.
+The training covers phishing recognition, password hygiene, and handling of customer data.
+Completion is mandatory within 14 days of assignment; uncompleted assignments escalate to
+the employee's manager after that window and to the department head after 30 days.
+Employees in engineering and support roles additionally complete an annual secure coding
+review. Failure to complete required training within 60 days may affect eligibility for
+the annual bonus, as described in the compensation plan. The security team runs unannounced
+phishing simulations each quarter; employees who click a simulation link are enrolled in a
+short remedial module rather than disciplined, unless the incident involves a credential
+being entered on a known-malicious site.
+
+Section 8: Confidentiality
+
+Employees must not share internal documentation, credentials, or customer data outside the
+company. Confidential documents are labeled with the Acme Confidential watermark. Public
+discussion of roadmap items is prohibited until the official announcement date published by
+the communications team.

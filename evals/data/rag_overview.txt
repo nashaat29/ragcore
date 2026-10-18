@@ -1,0 +1,45 @@
+Retrieval-Augmented Generation: An Overview
+
+Retrieval-augmented generation (RAG) is a technique that combines information retrieval with
+large language model generation. Instead of relying solely on the model's parametric memory,
+a RAG system retrieves relevant documents from an external knowledge base at query time and
+injects them into the prompt as context. The model then answers grounded in that context,
+which reduces hallucination and keeps responses up to date without retraining.
+
+A typical RAG pipeline has three stages: ingestion, retrieval, and generation. During
+ingestion, documents are parsed, cleaned, split into chunks, and converted into vector
+embeddings that are stored in a vector index such as FAISS. During retrieval, the user's
+question is embedded with the same embedding model and the index returns the chunks whose
+vectors are most similar to the query vector. During generation, those chunks are assembled
+into a context block and passed to the language model together with the question.
+
+Chunking matters because retrieval happens at chunk granularity, not document granularity.
+If chunks are too large, the embedding loses precision and irrelevant material dilutes the
+signal. If chunks are too small, they lack the surrounding context needed to answer a
+question. Most systems target a few hundred to a couple of thousand tokens per chunk.
+Chunk overlap means consecutive chunks share a small window of sentences, so a fact that
+straddles a boundary still appears intact in at least one chunk. Overlap is typically set
+to ten to twenty percent of the chunk size.
+
+Embedding models map text to dense vectors where semantically similar passages land close
+together. Common choices for RAG include nomic-embed-text, bge-m3, mxbai-embed-large, and
+OpenAI's text-embedding family. The same model must be used for documents and queries,
+because vectors from different models live in different spaces and are not comparable.
+
+Retrieval strategies go beyond plain top-k similarity. Maximum marginal relevance (MMR)
+balances relevance with diversity so the returned set is not five near-duplicates. Hybrid
+retrieval combines dense vector search with sparse lexical search such as BM25, which helps
+with exact identifiers like error codes or product names that embeddings handle poorly.
+Ensemble methods fuse the ranked lists from several retrievers, often with reciprocal rank
+fusion. A score threshold can drop weak matches so the model is not fed noise.
+
+Generation quality depends heavily on prompt design. The context should be clearly
+delimited so the model knows which text is data and which text is instruction, and the
+prompt should tell the model to answer only from the provided context and to admit when the
+context does not contain the answer. Good systems also return citations, letting users
+verify each claim against the source chunk.
+
+Evaluation of a RAG system usually covers retrieval quality (does the right chunk appear in
+the top k?) and answer quality (is the answer grounded, correct, and complete?). Common
+benchmarks include retrieval recall at k, faithfulness scores from judge models, and
+end-to-end question answering accuracy on datasets such as HotpotQA.
